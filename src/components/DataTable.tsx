@@ -22,7 +22,7 @@ export function DataTable({ data, columns }: DataTableProps) {
     new Set(columns.map(col => col.name))
   );
 
-  const rowsPerPage = 50;
+  const rowsPerPage = 20;
 
   // 검색 필터링
   const filteredData = useMemo(() => {

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -23,6 +23,7 @@ import html2canvas from 'html2canvas';
 import { useDataStore } from '../store/dataStore';
 import { getNumericColumns, suggestChartType } from '../utils/chartMapper';
 import { createChartConfig } from '../hooks/useChartGenerator';
+import { useGPTAnalysis } from '../hooks/useGPTAnalysis';
 
 // Chart.js 등록
 ChartJS.register(
@@ -58,10 +59,13 @@ const BORDER_COLORS = [
 
 export function ChartView() {
   const { rawData, columns, columnTypes, charts, addChart } = useDataStore();
+  const { recommendCharts, isLoading: isGPTLoading, error: gptError } = useGPTAnalysis();
   const [chartType, setChartType] = useState<'bar' | 'line' | 'pie' | 'scatter' | 'area' | 'bubble'>('bar');
   const [xAxis, setXAxis] = useState<string>('');
   const [yAxis, setYAxis] = useState<string>('');
   const [currentChartId, setCurrentChartId] = useState<string | null>(null);
+  const [recommendedCharts, setRecommendedCharts] = useState<any[]>([]);
+  const [hasGeneratedRecommendations, setHasGeneratedRecommendations] = useState(false);
   const chartRef = useRef<HTMLDivElement>(null);
 
   const numericColumns = getNumericColumns(columns);
@@ -74,6 +78,47 @@ export function ChartView() {
   if (!yAxis && numericColumns.length > 0) {
     setYAxis(numericColumns[0]);
   }
+
+  // 컴포넌트 마운트 시 GPT 추천 차트 생성
+  useEffect(() => {
+    if (rawData.length > 0 && columns.length > 0 && !hasGeneratedRecommendations) {
+      generateRecommendedCharts();
+    }
+  }, [rawData, columns]);
+
+  const generateRecommendedCharts = async () => {
+    try {
+      setHasGeneratedRecommendations(true);
+      const recommendations = await recommendCharts(rawData, columns);
+      
+      // 추천된 차트들을 실제 차트로 변환
+      const newCharts = recommendations.map((rec) => {
+        const xType = columnTypes[rec.xAxis] || 'string';
+        const yType = columnTypes[rec.yAxis] || 'number';
+        const chartConfig = createChartConfig(
+          rawData,
+          rec.xAxis,
+          rec.yAxis,
+          rec.type,
+          xType,
+          yType
+        );
+        chartConfig.title = rec.title;
+        return chartConfig;
+      });
+
+      // 모든 추천 차트를 스토어에 추가
+      newCharts.forEach(chart => addChart(chart));
+      setRecommendedCharts(newCharts);
+      
+      // 첫 번째 차트를 현재 차트로 설정
+      if (newCharts.length > 0) {
+        setCurrentChartId(newCharts[0].id);
+      }
+    } catch (err) {
+      console.error('차트 추천 생성 중 오류:', err);
+    }
+  };
 
   const handleGenerateChart = () => {
     if (!xAxis || !yAxis) return;
@@ -106,10 +151,11 @@ export function ChartView() {
     }
   };
 
-  const prepareChartData = () => {
-    if (!currentChart || !currentChart.data.length) return null;
+  const prepareChartData = (chart?: any) => {
+    const targetChart = chart || currentChart;
+    if (!targetChart || !targetChart.data.length) return null;
 
-    const { type, data, xAxis: chartXAxis, yAxis: chartYAxis } = currentChart;
+    const { type, data, xAxis: chartXAxis, yAxis: chartYAxis } = targetChart;
 
     if (type === 'pie') {
       return {
@@ -163,64 +209,70 @@ export function ChartView() {
     };
   };
 
-  const chartData = prepareChartData();
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'top' as const,
-      },
-      title: {
-        display: true,
-        text: currentChart?.title || '차트',
-      },
-      tooltip: {
-        enabled: true,
-      },
-    },
-    scales: currentChart?.type === 'pie' ? undefined : {
-      x: {
-        display: true,
+  const chartOptions = (chart?: any) => {
+    const targetChart = chart || currentChart;
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'top' as const,
+        },
         title: {
           display: true,
-          text: currentChart?.xAxis || 'X축',
+          text: targetChart?.title || '차트',
+        },
+        tooltip: {
+          enabled: true,
         },
       },
-      y: {
-        display: true,
-        title: {
+      scales: targetChart?.type === 'pie' ? undefined : {
+        x: {
           display: true,
-          text: currentChart?.yAxis || 'Y축',
+          title: {
+            display: true,
+            text: targetChart?.xAxis || 'X축',
+          },
+        },
+        y: {
+          display: true,
+          title: {
+            display: true,
+            text: targetChart?.yAxis || 'Y축',
+          },
         },
       },
-    },
+    };
   };
 
-  const renderChart = () => {
-    if (!currentChart || !chartData) {
+  const renderChart = (chart?: any) => {
+    const targetChart = chart || currentChart;
+    const data = prepareChartData(targetChart);
+    
+    if (!targetChart || !data) {
       return (
-        <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
+        <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg">
           <p className="text-gray-500">차트를 생성해주세요.</p>
         </div>
       );
     }
 
-    const { type } = currentChart;
+    const { type } = targetChart;
+    const options = chartOptions(targetChart);
 
     switch (type) {
       case 'bar':
-        return <Bar data={chartData} options={chartOptions} />;
+        return <Bar data={data} options={options} />;
       case 'line':
-        return <Line data={chartData} options={chartOptions} />;
+        return <Line data={data} options={options} />;
       case 'area':
-        return <Line data={chartData} options={chartOptions} />;
+        return <Line data={data} options={options} />;
       case 'pie':
-        return <Pie data={chartData} options={chartOptions} />;
+        return <Pie data={data} options={options} />;
       case 'scatter':
-        return <Scatter data={chartData} options={chartOptions} />;
+        return <Scatter data={data} options={options} />;
       case 'bubble':
-        return <Bubble data={chartData} options={chartOptions} />;
+        return <Bubble data={data} options={options} />;
       default:
         return null;
     }
@@ -231,7 +283,47 @@ export function ChartView() {
       <div className="max-w-6xl mx-auto">
         <h2 className="text-2xl font-bold text-gray-900 mb-6">📊 차트 생성</h2>
 
+        {/* GPT 추천 차트 로딩 상태 */}
+        {isGPTLoading && !hasGeneratedRecommendations && (
+          <div className="bg-white rounded-lg shadow p-8 text-center mb-6">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+            <p className="text-gray-600">AI가 데이터를 분석하고 최적의 차트를 추천하고 있습니다...</p>
+          </div>
+        )}
+
+        {/* GPT 추천 차트 그리드 */}
+        {recommendedCharts.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              🤖 AI 추천 차트 ({recommendedCharts.length}개)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {recommendedCharts.map((chart) => (
+                <div
+                  key={chart.id}
+                  className={`bg-white rounded-lg shadow p-4 border-2 transition-all cursor-pointer ${
+                    currentChartId === chart.id
+                      ? 'border-primary bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300 hover:shadow-lg'
+                  }`}
+                  onClick={() => setCurrentChartId(chart.id)}
+                >
+                  <h4 className="font-semibold text-gray-900 mb-2">{chart.title}</h4>
+                  <p className="text-xs text-gray-500 mb-3">
+                    {chart.type} • {chart.xAxis} vs {chart.yAxis}
+                  </p>
+                  <div className="h-48">
+                    {renderChart(chart)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 수동 차트 생성 섹션 */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">수동 차트 생성</h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -292,6 +384,7 @@ export function ChartView() {
           </div>
         </div>
 
+        {/* 현재 선택된 차트 상세 보기 */}
         {currentChart && (
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-4">
@@ -315,9 +408,10 @@ export function ChartView() {
           </div>
         )}
 
+        {/* 모든 생성된 차트 목록 */}
         {charts.length > 0 && (
           <div className="mt-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">생성된 차트 목록</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">모든 차트 목록</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {charts.map((chart) => (
                 <div
@@ -336,6 +430,12 @@ export function ChartView() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {gptError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-6">
+            <p className="text-red-600">차트 추천 생성 중 오류: {gptError}</p>
           </div>
         )}
       </div>

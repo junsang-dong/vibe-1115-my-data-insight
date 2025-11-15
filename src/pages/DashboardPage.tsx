@@ -1,21 +1,45 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDataStore } from '../store/dataStore';
 import { DataTable } from '../components/DataTable';
 import { DataSummary } from '../components/DataSummary';
 import { ChartView } from '../components/ChartView';
 import { ChatInterface } from '../components/ChatInterface';
+import { getLocalStorageSize, formatStorageSize } from '../utils/localStorage';
 
 type Tab = 'table' | 'summary' | 'chart' | 'chat';
 
 export function DashboardPage() {
   const navigate = useNavigate();
-  const { fileName, rawData, columns, reset } = useDataStore();
+  const { fileName, rawData, columns, reset, clearStorage } = useDataStore();
   const [activeTab, setActiveTab] = useState<Tab>('table');
+  const [storageSize, setStorageSize] = useState<string>('0 B');
+
+  // 스토리지 용량 업데이트
+  useEffect(() => {
+    const updateStorageSize = () => {
+      const size = getLocalStorageSize();
+      setStorageSize(formatStorageSize(size));
+    };
+    
+    updateStorageSize();
+    // 스토리지 변경 감지를 위한 인터벌
+    const interval = setInterval(updateStorageSize, 1000);
+    
+    return () => clearInterval(interval);
+  }, [rawData, columns]);
 
   const handleNewFile = () => {
     reset();
     navigate('/');
+  };
+
+  const handleClearStorage = () => {
+    if (window.confirm('로컬 스토리지의 모든 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+      clearStorage();
+      setStorageSize('0 B');
+      navigate('/');
+    }
   };
 
   if (rawData.length === 0) {
@@ -46,16 +70,31 @@ export function DashboardPage() {
       {/* 헤더 */}
       <header className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-bold text-gray-900">MyDataInsight</h1>
-            <p className="text-sm text-gray-600">{fileName}</p>
+            <div className="mt-2 flex items-center space-x-4 text-sm text-gray-600">
+              <div>
+                <span className="font-medium">현재 데이터:</span> {fileName || '없음'}
+              </div>
+              <div>
+                <span className="font-medium">저장 용량:</span> {storageSize}
+              </div>
+            </div>
           </div>
-          <button
-            onClick={handleNewFile}
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-          >
-            새 파일 업로드
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleClearStorage}
+              className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-sm"
+            >
+              로컬 스토리지 비우기
+            </button>
+            <button
+              onClick={handleNewFile}
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+            >
+              새 파일 업로드
+            </button>
+          </div>
         </div>
       </header>
 

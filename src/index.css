@@ -35,3 +35,58 @@ code {
   background: #555;
 }
 
+/* 요약 탭 스타일링 */
+.data-summary-content {
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.data-summary-content h2,
+.data-summary-content h3,
+.data-summary-content h4 {
+  font-size: 1.2em; /* 본문보다 20% 크게 */
+  font-weight: 600;
+  margin-top: 1.5em;
+  margin-bottom: 0.75em;
+  color: #1f2937;
+}
+
+.data-summary-content p {
+  position: relative;
+  padding-left: 1.5em;
+  margin-bottom: 0.75em;
+}
+
+.data-summary-content p::before {
+  content: "•";
+  position: absolute;
+  left: 0.5em;
+  color: #3b82f6;
+  font-weight: bold;
+  font-size: 1.2em;
+}
+
+.data-summary-content ul,
+.data-summary-content ol {
+  margin-left: 1.5em;
+  margin-bottom: 0.75em;
+}
+
+.data-summary-content li {
+  margin-bottom: 0.5em;
+}
+
+.data-summary-content code {
+  background-color: #f3f4f6;
+  padding: 0.2em 0.4em;
+  border-radius: 0.25rem;
+  font-size: 0.9em;
+}
+
+.data-summary-content pre {
+  background-color: #f3f4f6;
+  padding: 1em;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
+

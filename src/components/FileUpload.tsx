@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCSVParser } from '../hooks/useCSVParser';
 import { useDataStore } from '../store/dataStore';
+import { loadFromLocalStorage } from '../utils/localStorage';
 
 export function FileUpload() {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -9,6 +10,14 @@ export function FileUpload() {
   const { parseCSV, isLoading, error } = useCSVParser();
   const { setFileData } = useDataStore();
   const [isDragging, setIsDragging] = useState(false);
+
+  // 로컬 스토리지에 데이터가 있으면 대시보드로 이동
+  useEffect(() => {
+    const stored = loadFromLocalStorage();
+    if (stored.rawData && stored.rawData.length > 0) {
+      navigate('/dashboard');
+    }
+  }, [navigate]);
 
   const handleFileSelect = (file: File) => {
     if (!file.name.endsWith('.csv')) {

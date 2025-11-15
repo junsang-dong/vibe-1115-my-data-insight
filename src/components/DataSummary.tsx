@@ -61,7 +61,7 @@ export function DataSummary() {
         )}
 
         {!isLoading && summary && (
-          <div className="bg-white rounded-lg shadow p-6 prose max-w-none">
+          <div className="bg-white rounded-lg shadow p-6 prose max-w-none data-summary-content">
             <ReactMarkdown>{summary}</ReactMarkdown>
           </div>
         )}
