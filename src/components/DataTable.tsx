@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react';
 import { CSVRow, Column } from '../types';
 import { Sidebar } from './Sidebar';
 import { StatsCard } from './StatsCard';
-import { calculateStats } from '../utils/statsCalculator';
 
 interface DataTableProps {
   data: CSVRow[];
