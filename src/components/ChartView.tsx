@@ -1,34 +1,68 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  ScatterChart,
-  Scatter,
-  XAxis,
-  YAxis,
-  CartesianGrid,
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  LineElement,
+  PointElement,
+  ArcElement,
+  Title,
   Tooltip,
   Legend,
-  ResponsiveContainer,
-} from 'recharts';
+  Filler,
+} from 'chart.js';
+import {
+  Bar,
+  Line,
+  Pie,
+  Scatter,
+  Bubble,
+} from 'react-chartjs-2';
 import html2canvas from 'html2canvas';
 import { useDataStore } from '../store/dataStore';
 import { getNumericColumns, suggestChartType } from '../utils/chartMapper';
 import { createChartConfig } from '../hooks/useChartGenerator';
 
-const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+// Chart.js 등록
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  LineElement,
+  PointElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
+
+const COLORS = [
+  'rgba(59, 130, 246, 0.8)',   // blue
+  'rgba(16, 185, 129, 0.8)',   // green
+  'rgba(245, 158, 11, 0.8)',   // yellow
+  'rgba(239, 68, 68, 0.8)',    // red
+  'rgba(139, 92, 246, 0.8)',   // purple
+  'rgba(236, 72, 153, 0.8)',    // pink
+];
+
+const BORDER_COLORS = [
+  'rgb(59, 130, 246)',
+  'rgb(16, 185, 129)',
+  'rgb(245, 158, 11)',
+  'rgb(239, 68, 68)',
+  'rgb(139, 92, 246)',
+  'rgb(236, 72, 153)',
+];
 
 export function ChartView() {
   const { rawData, columns, columnTypes, charts, addChart } = useDataStore();
-  const [chartType, setChartType] = useState<'bar' | 'line' | 'pie' | 'scatter'>('bar');
+  const [chartType, setChartType] = useState<'bar' | 'line' | 'pie' | 'scatter' | 'area' | 'bubble'>('bar');
   const [xAxis, setXAxis] = useState<string>('');
   const [yAxis, setYAxis] = useState<string>('');
   const [currentChartId, setCurrentChartId] = useState<string | null>(null);
+  const chartRef = useRef<HTMLDivElement>(null);
 
   const numericColumns = getNumericColumns(columns);
   const allColumns = columns.map(col => col.name);
@@ -72,8 +106,99 @@ export function ChartView() {
     }
   };
 
+  const prepareChartData = () => {
+    if (!currentChart || !currentChart.data.length) return null;
+
+    const { type, data, xAxis: chartXAxis, yAxis: chartYAxis } = currentChart;
+
+    if (type === 'pie') {
+      return {
+        labels: data.map((item: any) => item.name),
+        datasets: [
+          {
+            label: chartXAxis,
+            data: data.map((item: any) => item.value),
+            backgroundColor: COLORS.slice(0, data.length),
+            borderColor: BORDER_COLORS.slice(0, data.length),
+            borderWidth: 1,
+          },
+        ],
+      };
+    }
+
+    if (type === 'scatter' || type === 'bubble') {
+      return {
+        datasets: [
+          {
+            label: `${chartXAxis} vs ${chartYAxis}`,
+            data: data.map((item: any) => ({
+              x: item[chartXAxis],
+              y: item[chartYAxis],
+              r: type === 'bubble' ? Math.abs(item[chartYAxis]) / 100 : undefined,
+            })),
+            backgroundColor: COLORS[0],
+            borderColor: BORDER_COLORS[0],
+            borderWidth: 1,
+          },
+        ],
+      };
+    }
+
+    // Bar, Line, Area 차트
+    return {
+      labels: data.map((item: any) => item.name || item[chartXAxis]),
+      datasets: [
+        {
+          label: chartYAxis,
+          data: data.map((item: any) => item[chartYAxis] || item.value),
+          backgroundColor: type === 'area' 
+            ? COLORS[0].replace('0.8', '0.5')
+            : COLORS[0],
+          borderColor: BORDER_COLORS[0],
+          borderWidth: 2,
+          fill: type === 'area',
+          tension: type === 'line' || type === 'area' ? 0.4 : 0,
+        },
+      ],
+    };
+  };
+
+  const chartData = prepareChartData();
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+      },
+      title: {
+        display: true,
+        text: currentChart?.title || '차트',
+      },
+      tooltip: {
+        enabled: true,
+      },
+    },
+    scales: currentChart?.type === 'pie' ? undefined : {
+      x: {
+        display: true,
+        title: {
+          display: true,
+          text: currentChart?.xAxis || 'X축',
+        },
+      },
+      y: {
+        display: true,
+        title: {
+          display: true,
+          text: currentChart?.yAxis || 'Y축',
+        },
+      },
+    },
+  };
+
   const renderChart = () => {
-    if (!currentChart || !currentChart.data.length) {
+    if (!currentChart || !chartData) {
       return (
         <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
           <p className="text-gray-500">차트를 생성해주세요.</p>
@@ -81,75 +206,21 @@ export function ChartView() {
       );
     }
 
-    const { type, data, xAxis: chartXAxis, yAxis: chartYAxis } = currentChart;
+    const { type } = currentChart;
 
     switch (type) {
       case 'bar':
-        return (
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey={chartYAxis} fill="#3B82F6" />
-            </BarChart>
-          </ResponsiveContainer>
-        );
-
+        return <Bar data={chartData} options={chartOptions} />;
       case 'line':
-        return (
-          <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey={chartYAxis} stroke="#3B82F6" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        );
-
+        return <Line data={chartData} options={chartOptions} />;
+      case 'area':
+        return <Line data={chartData} options={chartOptions} />;
       case 'pie':
-        return (
-          <ResponsiveContainer width="100%" height={400}>
-            <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                outerRadius={120}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        );
-
+        return <Pie data={chartData} options={chartOptions} />;
       case 'scatter':
-        return (
-          <ResponsiveContainer width="100%" height={400}>
-            <ScatterChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey={chartXAxis} type="number" />
-              <YAxis dataKey={chartYAxis} type="number" />
-              <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-              <Legend />
-              <Scatter dataKey={chartYAxis} fill="#3B82F6" />
-            </ScatterChart>
-          </ResponsiveContainer>
-        );
-
+        return <Scatter data={chartData} options={chartOptions} />;
+      case 'bubble':
+        return <Bubble data={chartData} options={chartOptions} />;
       default:
         return null;
     }
@@ -173,8 +244,10 @@ export function ChartView() {
               >
                 <option value="bar">막대 그래프</option>
                 <option value="line">선 그래프</option>
+                <option value="area">영역 그래프</option>
                 <option value="pie">파이 차트</option>
                 <option value="scatter">산점도</option>
+                <option value="bubble">버블 차트</option>
               </select>
             </div>
 
@@ -232,7 +305,11 @@ export function ChartView() {
                 PNG 다운로드
               </button>
             </div>
-            <div id={`chart-${currentChart.id}`}>
+            <div 
+              id={`chart-${currentChart.id}`}
+              ref={chartRef}
+              className="h-96"
+            >
               {renderChart()}
             </div>
           </div>
@@ -265,4 +342,3 @@ export function ChartView() {
     </div>
   );
 }
-

@@ -9,7 +9,7 @@ export interface Column {
 
 export interface ChartConfig {
   id: string;
-  type: 'bar' | 'line' | 'pie' | 'scatter';
+  type: 'bar' | 'line' | 'pie' | 'scatter' | 'area' | 'bubble';
   xAxis: string;
   yAxis: string;
   data: any[];

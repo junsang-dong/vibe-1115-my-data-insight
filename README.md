@@ -64,12 +64,46 @@ src/
 
 ## 📝 배포
 
-Vercel에 배포할 경우:
+### Vercel 배포
 
-1. GitHub에 프로젝트 푸시
-2. Vercel에서 프로젝트 import
-3. 환경 변수에 `VITE_OPENAI_API_KEY` 추가
-4. 배포 완료!
+#### 방법 1: Vercel 웹 대시보드 사용 (권장)
+
+1. [Vercel](https://vercel.com)에 로그인
+2. "Add New Project" 클릭
+3. GitHub 리포지토리 선택: `junsang-dong/vibe-1115-my-data-insight`
+4. 프로젝트 설정:
+   - **Framework Preset**: Vite (자동 감지됨)
+   - **Root Directory**: `./` (기본값)
+   - **Build Command**: `npm run build` (자동 설정됨)
+   - **Output Directory**: `dist` (자동 설정됨)
+5. **Environment Variables** 섹션에서:
+   - Key: `VITE_OPENAI_API_KEY`
+   - Value: 실제 OpenAI API 키 입력
+6. "Deploy" 클릭
+
+#### 방법 2: Vercel CLI 사용
+
+```bash
+# Vercel CLI 설치
+npm i -g vercel
+
+# 프로젝트 디렉토리에서 배포
+vercel
+
+# 프로덕션 배포
+vercel --prod
+```
+
+환경 변수는 Vercel 대시보드에서 설정하거나 CLI로 추가할 수 있습니다:
+```bash
+vercel env add VITE_OPENAI_API_KEY
+```
+
+#### 배포 후 확인
+
+배포가 완료되면 Vercel이 자동으로 URL을 제공합니다 (예: `https://vibe-1115-my-data-insight.vercel.app`)
+
+**중요**: 환경 변수 `VITE_OPENAI_API_KEY`를 반드시 설정해야 AI 분석 기능이 작동합니다.
 
 ## 📄 라이선스
 

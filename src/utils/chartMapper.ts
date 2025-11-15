@@ -3,7 +3,7 @@ import { Column } from '../types';
 /**
  * 컬럼 타입에 따라 적절한 차트 타입 추천
  */
-export function suggestChartType(xType: string, yType: string): 'bar' | 'line' | 'pie' | 'scatter' {
+export function suggestChartType(xType: string, yType: string): 'bar' | 'line' | 'pie' | 'scatter' | 'area' | 'bubble' {
   if (xType === 'date' && yType === 'number') return 'line';
   if (xType === 'string' && yType === 'number') return 'bar';
   if (xType === 'number' && yType === 'number') return 'scatter';

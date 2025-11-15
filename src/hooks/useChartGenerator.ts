@@ -8,7 +8,7 @@ export function generateChartData(
   data: CSVRow[],
   xAxis: string,
   yAxis: string,
-  chartType: 'bar' | 'line' | 'pie' | 'scatter'
+  chartType: 'bar' | 'line' | 'pie' | 'scatter' | 'area' | 'bubble'
 ): any[] {
   if (chartType === 'pie') {
     // 파이 차트: x축 값별 개수 집계
@@ -22,8 +22,8 @@ export function generateChartData(
       name,
       value,
     }));
-  } else if (chartType === 'scatter') {
-    // 산점도: 각 데이터 포인트를 그대로 표시
+  } else if (chartType === 'scatter' || chartType === 'bubble') {
+    // 산점도/버블 차트: 각 데이터 포인트를 그대로 표시
     return data
       .map(row => {
         const xValue = Number(row[xAxis]);
@@ -80,7 +80,7 @@ export function createChartConfig(
   data: CSVRow[],
   xAxis: string,
   yAxis: string,
-  chartType: 'bar' | 'line' | 'pie' | 'scatter',
+  chartType: 'bar' | 'line' | 'pie' | 'scatter' | 'area' | 'bubble',
   xType: 'number' | 'string' | 'date',
   yType: 'number' | 'string' | 'date'
 ): ChartConfig {
